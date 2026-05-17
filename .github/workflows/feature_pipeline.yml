@@ -27,9 +27,7 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Run feature pipeline
         env:
-          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-          HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
         run: python feature_pipeline.py
