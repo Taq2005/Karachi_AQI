@@ -12,14 +12,30 @@ HOPSWORKS_PROJECT = os.environ["HOPSWORKS_PROJECT"]
 # ── Config (identical to fetch_to_hopsworks.py) ───────────────────────────────
 LAT, LON   = 24.8608, 67.0104
 TIMEZONE   = "Asia/Karachi"
-END_DATE   = date.today() - timedelta(days=1)       # yesterday
-START_DATE = END_DATE - timedelta(days=1)           # last 24 hours per run
 
 FEATURE_GROUP_NAME    = "karachi_aqi_weather"
 FEATURE_GROUP_VERSION = 1
 
+# ── Smart date range — fetch only NEW data ────────────────────────────────────
+END_DATE = date.today() - timedelta(days=1)
+
+try:
+    fg_check = fs.get_feature_group(FEATURE_GROUP_NAME, version=FEATURE_GROUP_VERSION)
+    existing = fg_check.read()
+    existing["time"] = pd.to_datetime(existing["time"], utc=True)
+    last_date  = existing["time"].max().date()
+    START_DATE = last_date                    # start from last known date
+    print(f"📅  Last record in store : {last_date}")
+except Exception:
+    START_DATE = END_DATE - timedelta(days=90)  # fallback for first run
+    print("📅  No existing data — full 90-day backfill")
+
 print(f"📅  Fetching  {START_DATE}  →  {END_DATE}")
 
+# skip if already up to date
+if START_DATE >= END_DATE:
+    print("✅  Feature store is already up to date. Nothing to upload.")
+    exit(0)
 # ── 1. Fetch Air Quality ──────────────────────────────────────────────────────
 print("📡  Fetching air quality data …")
 aq_resp = requests.get(
