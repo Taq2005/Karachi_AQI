@@ -17,7 +17,7 @@ collection = db[os.getenv("MONGO_COLLECTION", "hourly_features")]
 
 try:
     # ── Smart date range ──────────────────────────────────────────────────────
-    END_DATE = date.today() - timedelta(days=2)   # ← go back 2 days, not 1
+    END_DATE = date.today() - timedelta(days=1)   # ← go back 2 days, not 1
 
     last_doc = collection.find_one(sort=[("time", -1)])
     if last_doc:
