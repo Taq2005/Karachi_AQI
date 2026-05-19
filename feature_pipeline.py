@@ -22,7 +22,7 @@ END_DATE = date.today() - timedelta(days=1)
 last_doc = collection.find_one(sort=[("time", -1)])
 if last_doc:
     last_date  = pd.Timestamp(last_doc["time"]).date()
-    START_DATE = last_date - timedelta(days=3)  # go 3 days back to cover lag NaNs
+    START_DATE = last_date - timedelta(days=30)  # fetch 30 days back for lag context
     print(f"📅  Last record : {last_date}")
 else:
     START_DATE = END_DATE - timedelta(days=90)
@@ -32,6 +32,8 @@ if START_DATE >= END_DATE:
     print("✅  Already up to date.")
     client.close()
     exit(0)
+
+print(f"📅  Fetching  {START_DATE}  →  {END_DATE}")
 
 # ── Fetch from Open-Meteo ─────────────────────────────────────────────────────
 aq = requests.get("https://air-quality-api.open-meteo.com/v1/air-quality", params={
@@ -75,6 +77,11 @@ df["aqi_lag_24h"]     = df["us_aqi"].shift(24)
 df["aqi_roll_24h"]    = df["us_aqi"].rolling(24).mean()
 df["aqi_change_rate"] = df["us_aqi"].diff()
 df.dropna(inplace=True)
+# ── Only keep rows newer than last uploaded record ────────────────────────────
+if last_doc:
+    last_uploaded = pd.Timestamp(last_doc["time"]).tz_localize(None)
+    df = df[df["time"] > last_uploaded]
+    print(f"✅  New rows to upload: {len(df)}")
 
 # ── Guard — skip if nothing to upload ────────────────────────────────────────
 if df.empty or len(df) == 0:
