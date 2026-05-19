@@ -16,22 +16,21 @@ TIMEZONE   = "Asia/Karachi"
 client     = MongoClient(os.getenv("MONGO_URI"))
 db         = client[os.getenv("MONGO_DB", "karachi_aqi_weather")]
 collection = db[os.getenv("MONGO_COLLECTION", "hourly_features")]
-
 # ── Smart date range ──────────────────────────────────────────────────────────
 END_DATE = date.today() - timedelta(days=1)
 
-last_doc = collection.find_one(sort=[("time", -1)])   # get latest record
+last_doc = collection.find_one(sort=[("time", -1)])
 if last_doc:
-    START_DATE = pd.Timestamp(last_doc["time"]).date()
-    print(f"📅  Last record : {START_DATE}")
+    last_date  = pd.Timestamp(last_doc["time"]).date()
+    START_DATE = last_date - timedelta(days=3)  # go 3 days back to cover lag NaNs
+    print(f"📅  Last record : {last_date}")
 else:
     START_DATE = END_DATE - timedelta(days=90)
-    print("📅  No existing data — full 90-day backfill")
-
-print(f"📅  Fetching  {START_DATE}  →  {END_DATE}")
+    print("📅  First run — fetching 90 days")
 
 if START_DATE >= END_DATE:
-    print("✅  Already up to date. Nothing to upload.")
+    print("✅  Already up to date.")
+    client.close()
     exit(0)
 
 # ── Fetch from Open-Meteo ─────────────────────────────────────────────────────
@@ -77,6 +76,24 @@ df["aqi_roll_24h"]    = df["us_aqi"].rolling(24).mean()
 df["aqi_change_rate"] = df["us_aqi"].diff()
 df.dropna(inplace=True)
 
+# ── Guard — skip if nothing to upload ────────────────────────────────────────
+if df.empty or len(df) == 0:
+    print("⚠️  DataFrame is empty after cleaning — nothing to upload.")
+    client.close()
+    exit(0)
+
+records = df.to_dict("records")
+for r in records:
+    r["time"] = pd.Timestamp(r["time"]).to_pydatetime()
+
+ops = [UpdateOne({"time": r["time"]}, {"$set": r}, upsert=True) for r in records]
+
+if not ops:
+    print("⚠️  No operations to execute — skipping.")
+    client.close()
+    exit(0)
+
+result = collection.bulk_write(ops)
 # ── Upsert to MongoDB ─────────────────────────────────────────────────────────
 records = df.to_dict("records")
 ops = [
