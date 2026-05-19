@@ -12,7 +12,7 @@ LAT, LON = 24.8608, 67.0104
 TIMEZONE = "Asia/Karachi"
 
 client     = MongoClient(os.getenv("MONGO_URI"))
-db         = client[os.getenv("MONGO_DB", "karachi_aqi")]
+db         = client[os.getenv("MONGO_DB", "karachi_aqi_weather")]
 collection = db[os.getenv("MONGO_COLLECTION", "hourly_features")]
 
 try:
