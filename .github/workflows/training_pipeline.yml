@@ -1,0 +1,46 @@
+name: ML Model
+
+on:
+  schedule:
+    - cron: "0 1 * * *"   # 01:00 UTC daily  (06:00 PKT)
+  workflow_dispatch:       # allow manual run from GitHub UI
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}   # PAT so the commit step can push
+
+      # ── 2. Python ───────────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # ── 3. Install deps ─────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── 4. Run pipeline ─────────────────────────────────────────────────────
+      - name: Run AQI forecast pipeline
+        env:
+          MONGO_URI:        ${{ secrets.MONGO_URI }}
+          MONGO_DB:         ${{ secrets.MONGO_DB }}
+          MONGO_COLLECTION: ${{ secrets.MONGO_COLLECTION }}
+        run: python training_pipeline.py
+
+      # ── 5. Commit forecast.json back to repo ────────────────────────────────
+      - name: Commit forecast.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/forecast.json
+          git diff --cached --quiet || git commit -m "chore: update forecast.json [skip ci]"
+          git push
