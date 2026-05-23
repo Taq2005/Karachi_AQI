@@ -12,12 +12,12 @@ LAT, LON = 24.8608, 67.0104
 TIMEZONE = "Asia/Karachi"
 
 client     = MongoClient(os.getenv("MONGO_URI"))
-db         = client[os.getenv("MONGO_DB", "karachi_aqi_weather")]
+db         = client[os.getenv("MONGO_DB", "karachi_aqi")]
 collection = db[os.getenv("MONGO_COLLECTION", "hourly_features")]
 
 try:
     # ── Smart date range ──────────────────────────────────────────────────────
-    END_DATE = date.today() - timedelta(days=1)   # ← go back 2 days, not 1
+    END_DATE = date.today() - timedelta(days=5)   # archive API has 2-5 day lag
 
     last_doc = collection.find_one(sort=[("time", -1)])
     if last_doc:
@@ -34,24 +34,43 @@ try:
 
     print(f"📅  Fetching  {START_DATE}  →  {END_DATE}")
 
-    # ── Fetch ─────────────────────────────────────────────────────────────────
-    aq = requests.get("https://air-quality-api.open-meteo.com/v1/air-quality", params={
-        "latitude": LAT, "longitude": LON,
-        "start_date": str(START_DATE), "end_date": str(END_DATE),
-        "hourly": ["pm2_5","pm10","nitrogen_dioxide","ozone",
-                   "sulphur_dioxide","carbon_monoxide","us_aqi"],
-        "timezone": TIMEZONE,
-    }, timeout=30).json()["hourly"]
+    # ── Fetch Air Quality ─────────────────────────────────────────────────────
+    print("📡  Fetching air quality data …")
+    aq_resp = requests.get(
+        "https://air-quality-api.open-meteo.com/v1/air-quality",
+        params={
+            "latitude"  : LAT, "longitude": LON,
+            "start_date": str(START_DATE), "end_date": str(END_DATE),
+            "hourly"    : ["pm2_5","pm10","nitrogen_dioxide","ozone",
+                           "sulphur_dioxide","carbon_monoxide","us_aqi"],
+            "timezone"  : TIMEZONE,
+        }, timeout=30
+    )
+    if aq_resp.status_code != 200 or not aq_resp.text.strip():
+        print(f"⚠️  Air quality API error {aq_resp.status_code}: {aq_resp.text[:200]}")
+        exit(0)
+    aq = aq_resp.json()["hourly"]
+    print(f"✅  Air quality rows: {len(aq['time'])}")
 
-    wx = requests.get("https://archive-api.open-meteo.com/v1/archive", params={
-        "latitude": LAT, "longitude": LON,
-        "start_date": str(START_DATE), "end_date": str(END_DATE),
-        "hourly": ["temperature_2m","relative_humidity_2m","dew_point_2m",
-                   "apparent_temperature","wind_speed_10m","wind_direction_10m",
-                   "wind_gusts_10m","precipitation","surface_pressure",
-                   "cloud_cover","visibility","shortwave_radiation"],
-        "timezone": TIMEZONE,
-    }, timeout=30).json()["hourly"]
+    # ── Fetch Weather ─────────────────────────────────────────────────────────
+    print("📡  Fetching weather data …")
+    wx_resp = requests.get(
+        "https://archive-api.open-meteo.com/v1/archive",
+        params={
+            "latitude"  : LAT, "longitude": LON,
+            "start_date": str(START_DATE), "end_date": str(END_DATE),
+            "hourly"    : ["temperature_2m","relative_humidity_2m","dew_point_2m",
+                           "apparent_temperature","wind_speed_10m","wind_direction_10m",
+                           "wind_gusts_10m","precipitation","surface_pressure",
+                           "cloud_cover","visibility","shortwave_radiation"],
+            "timezone"  : TIMEZONE,
+        }, timeout=30
+    )
+    if wx_resp.status_code != 200 or not wx_resp.text.strip():
+        print(f"⚠️  Weather API error {wx_resp.status_code}: {wx_resp.text[:200]}")
+        exit(0)
+    wx = wx_resp.json()["hourly"]
+    print(f"✅  Weather rows: {len(wx['time'])}")
 
     # ── Merge & clean ─────────────────────────────────────────────────────────
     df = pd.merge(pd.DataFrame(aq), pd.DataFrame(wx), on="time")
@@ -61,8 +80,9 @@ try:
     for col in df.select_dtypes("number").columns:
         df[col].fillna(df[col].median(), inplace=True)
     df.fillna(0, inplace=True)
+    print(f"✅  Merged shape: {df.shape}")
 
-    # ── Feature engineering ───────────────────────────────────────────────────
+    # ── Feature Engineering ───────────────────────────────────────────────────
     df["hour"]            = df["time"].dt.hour
     df["day_of_week"]     = df["time"].dt.dayofweek
     df["month"]           = df["time"].dt.month
@@ -76,7 +96,8 @@ try:
     df["aqi_lag_24h"]     = df["us_aqi"].shift(24)
     df["aqi_roll_24h"]    = df["us_aqi"].rolling(24).mean()
     df["aqi_change_rate"] = df["us_aqi"].diff()
-    df.dropna(inplace=True)
+    df.dropna(subset=["aqi_lag_24h", "aqi_roll_24h"], inplace=True)
+    df.fillna(0, inplace=True)
 
     # ── Filter only new rows ──────────────────────────────────────────────────
     if last_doc:
@@ -96,7 +117,8 @@ try:
 
     ops    = [UpdateOne({"time": r["time"]}, {"$set": r}, upsert=True) for r in records]
     result = collection.bulk_write(ops)
-    print(f"🎉  Upserted {result.upserted_count}  |  Modified {result.modified_count}  |  Total: {collection.count_documents({})}")
+    print(f"🎉  Upserted {result.upserted_count}  |  Modified {result.modified_count}"
+          f"  |  Total: {collection.count_documents({})}")
 
 except Exception as e:
     print(f"❌  Error: {e}")
