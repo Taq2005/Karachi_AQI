@@ -1,14 +1,3 @@
-"""
-AeroSense — Karachi AQI Intelligence Dashboard
-================================================
-Streamlit app — reads from MongoDB collections:
-  - hourly_features        : historical AQI readings
-  - aqi_forecasts          : 3-day daily forecast (avg, min, max)
-  - aqi_forecasts_hourly   : 72-hour hourly forecast
-  - model_registry         : active model metadata & metrics
-"""
-
-import os
 from datetime import datetime, timezone, timedelta
 
 import pandas as pd
@@ -314,8 +303,8 @@ html, body,
 
 @st.cache_resource
 def get_db():
-    client = MongoClient(os.getenv("MONGO_URI"))
-    return client[os.getenv("MONGO_DB", "karachi_aqi_weather")]
+    client = MongoClient(st.secrets["MONGO_URI"])
+    return client[st.secrets.get("MONGO_DB", "karachi_aqi_weather")]
 
 @st.cache_data(ttl=1800)
 def load_current_aqi():
