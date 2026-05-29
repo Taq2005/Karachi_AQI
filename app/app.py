@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-
+import os
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -301,26 +301,27 @@ html, body,
 # DATA LAYER
 # ══════════════════════════════════════════════════════════════════════════════
 
-@st.cache_resource
-def get_db():
-    client = MongoClient(st.secrets["MONGO_URI"])
-    return client[st.secrets.get("MONGO_DB", "karachi_aqi_weather")]
+def get_db():   # ← no @st.cache_resource
+    uri     = st.secrets.get("MONGO_URI",  os.getenv("MONGO_URI"))
+    db_name = st.secrets.get("MONGO_DB",   os.getenv("MONGO_DB", "karachi_aqi"))
+    client  = MongoClient(uri, serverSelectionTimeoutMS=10000)
+    return client[db_name]
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)
 def load_current_aqi():
     return get_db()["hourly_features"].find_one(sort=[("time", -1)])
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)
 def load_daily_forecast():
     docs = list(get_db()["aqi_forecasts"].find({}, {"_id": 0}).sort("date", 1))
     return pd.DataFrame(docs) if docs else pd.DataFrame()
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)
 def load_hourly_forecast():
     docs = list(get_db()["aqi_forecasts_hourly"].find({}, {"_id": 0}).sort("datetime", 1))
     return pd.DataFrame(docs) if docs else pd.DataFrame()
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=300)
 def load_historical(days=14):
     since = datetime.now(timezone.utc) - timedelta(days=days)
     docs  = list(get_db()["hourly_features"].find(
@@ -329,7 +330,7 @@ def load_historical(days=14):
     ).sort("time", 1))
     return pd.DataFrame(docs) if docs else pd.DataFrame()
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def load_model_meta():
     return get_db()["model_registry"].find_one({"is_active": True})
 
