@@ -80,7 +80,7 @@ WEATHER_COLS = [
     "temperature_2m", "relative_humidity_2m", "dew_point_2m",
     "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m",
     "precipitation", "surface_pressure", "cloud_cover",
-    "visibility", "shortwave_radiation",
+    "shortwave_radiation",
 ]
 
 AQI_LAG_HOURS = [1, 2, 3, 6, 12, 24, 48]
