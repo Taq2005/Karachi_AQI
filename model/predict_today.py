@@ -30,7 +30,7 @@ wx = requests.get("https://api.open-meteo.com/v1/forecast", params={
     "hourly": ["temperature_2m", "relative_humidity_2m", "dew_point_2m",
                "apparent_temperature", "wind_speed_10m", "wind_direction_10m",
                "wind_gusts_10m", "precipitation", "surface_pressure",
-               "cloud_cover", "visibility", "shortwave_radiation"],
+               "cloud_cover", "shortwave_radiation"],
     "timezone": TIMEZONE,
 }, timeout=30).json()["hourly"]
 
