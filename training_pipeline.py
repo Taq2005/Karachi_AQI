@@ -1,16 +1,3 @@
-"""
-AQI Hourly Forecast Pipeline
-==============================
-Strategy : Train a single-step hourly model (predict AQI t+1),
-           then roll it forward 72 hours recursively.
-           Average each 24-hour block -> 3-day daily AQI forecast.
-
-Models   : Ridge, Random Forest, LightGBM, XGBoost
-Storage  : best model -> MongoDB GridFS + model_registry collection
-           forecasts  -> MongoDB + data/forecast.json (committed to repo)
-Run      : python train_aqi_model.py
-"""
-
 import os, json, pickle, hashlib, warnings
 from datetime import datetime, timezone, date
 
@@ -218,7 +205,8 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
     last_weather = seed_df[wx_cols].iloc[-1].to_dict()
     last_ts      = seed_df.index[-1]
     hourly_preds = []
-
+    hist_mean      = float(df["us_aqi"].tail(24 * 7).mean())
+    REVERSION_RATE = 0.015
     for step in range(FORECAST_H):
         next_ts = last_ts + pd.Timedelta(hours=step + 1)
         row = {col: last_weather[col] for col in wx_cols}
@@ -245,7 +233,11 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
         x = np.array([row.get(c, 0.0) for c in feature_cols],
                      dtype=np.float32).reshape(1, -1)
 
-        pred_aqi = max(0.0, float(pipeline.predict(x)[0]))
+        raw_pred = max(0.0, float(pipeline.predict(x)[0]))
+
+        # Mean reversion: nudge toward 7-day historical mean to prevent drift
+        reversion = REVERSION_RATE * step * (hist_mean - raw_pred)
+        pred_aqi  = max(0.0, raw_pred + reversion)
         aqi_hist.append(pred_aqi)
         hourly_preds.append({
             "datetime":            next_ts.isoformat(),
