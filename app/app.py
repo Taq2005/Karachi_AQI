@@ -10,7 +10,7 @@ load_dotenv()
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AeroSense | Karachi AQI",
+    page_title="Aab-O-Hawa | Karachi AQI",
     page_icon="🌫️",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -30,7 +30,7 @@ st.markdown("""
     --border-accent:  #3B82F6;
     --text-primary:   #0F1C2E;
     --text-secondary: #4A6080;
-    --text-muted:     #8AA0BC;
+    --text-muted:     #3A5070;
     --accent:         #2563EB;
     --accent-glow:    rgba(37,99,235,0.12);
     --line-subtle:    rgba(37,99,235,0.15);
@@ -46,7 +46,7 @@ st.markdown("""
         --border-accent:  #2E6BE6;
         --text-primary:   #E8EDF5;
         --text-secondary: #5A7FA8;
-        --text-muted:     #2E4A6A;
+        --text-muted:     #6A90B8;
         --accent:         #2E6BE6;
         --accent-glow:    rgba(46,107,230,0.10);
         --line-subtle:    rgba(46,107,230,0.18);
@@ -390,7 +390,7 @@ def main():
     with c1:
         st.markdown("""
         <div style="padding:6px 0 12px;">
-            <div class="topbar-title">🌫️ AeroSense</div>
+            <div class="topbar-title">🌫️ Aab-O-Hawa</div>
             <div class="topbar-sub">Karachi Air Quality Intelligence</div>
         </div>""", unsafe_allow_html=True)
 
@@ -638,7 +638,7 @@ def main():
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="footer">
-        AeroSense &nbsp;·&nbsp; Karachi Air Quality Intelligence
+        Aab-O-Hawa &nbsp;·&nbsp; Karachi Air Quality Intelligence
         &nbsp;·&nbsp; Data: Open-Meteo &nbsp;·&nbsp; Model retrained daily
     </div>""", unsafe_allow_html=True)
 
