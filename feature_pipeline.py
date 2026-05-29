@@ -15,27 +15,50 @@ client     = MongoClient(os.getenv("MONGO_URI"))
 db         = client[os.getenv("MONGO_DB", "karachi_aqi")]
 collection = db[os.getenv("MONGO_COLLECTION", "hourly_features")]
 
+def get_latest_available_date():
+    """Probe the archive API to find the most recent date with actual data."""
+    for days_back in range(1, 10):
+        probe_date = date.today() - timedelta(days=days_back)
+        resp = requests.get(
+            "https://archive-api.open-meteo.com/v1/archive",
+            params={
+                "latitude": LAT, "longitude": LON,
+                "start_date": str(probe_date),
+                "end_date"  : str(probe_date),
+                "hourly"    : ["temperature_2m"],
+                "timezone"  : TIMEZONE,
+            }, timeout=15
+        )
+        if resp.status_code == 200 and resp.text.strip():
+            try:
+                data = resp.json()
+                temps = data["hourly"].get("temperature_2m", [])
+                if temps and any(v is not None for v in temps):
+                    print(f"✅  Latest available date: {probe_date} (checked {days_back} days back)")
+                    return probe_date
+            except Exception:
+                continue
+    return date.today() - timedelta(days=7)  # safe fallback
+
 try:
-    # ── Smart date range ──────────────────────────────────────────────────────
-    END_DATE = date.today() - timedelta(days=5)   # archive API has 2-5 day lag
+    END_DATE = get_latest_available_date()
 
     last_doc = collection.find_one(sort=[("time", -1)])
     if last_doc:
         last_date  = pd.Timestamp(last_doc["time"]).date()
-        START_DATE = last_date - timedelta(days=30)
+        START_DATE = last_date - timedelta(days=2)
         print(f"📅  Last record : {last_date}")
     else:
         START_DATE = END_DATE - timedelta(days=90)
         print("📅  First run — fetching 90 days")
 
-    if START_DATE >= END_DATE:
-        print("✅  Already up to date.")
+    if last_date >= END_DATE:
+        print(f"✅  Already up to date (last={last_date}, end={END_DATE}).")
         exit(0)
 
     print(f"📅  Fetching  {START_DATE}  →  {END_DATE}")
 
     # ── Fetch Air Quality ─────────────────────────────────────────────────────
-    print("📡  Fetching air quality data …")
     aq_resp = requests.get(
         "https://air-quality-api.open-meteo.com/v1/air-quality",
         params={
@@ -47,13 +70,12 @@ try:
         }, timeout=30
     )
     if aq_resp.status_code != 200 or not aq_resp.text.strip():
-        print(f"⚠️  Air quality API error {aq_resp.status_code}: {aq_resp.text[:200]}")
+        print(f"⚠️  Air quality API error {aq_resp.status_code}")
         exit(0)
     aq = aq_resp.json()["hourly"]
     print(f"✅  Air quality rows: {len(aq['time'])}")
 
     # ── Fetch Weather ─────────────────────────────────────────────────────────
-    print("📡  Fetching weather data …")
     wx_resp = requests.get(
         "https://archive-api.open-meteo.com/v1/archive",
         params={
@@ -67,7 +89,7 @@ try:
         }, timeout=30
     )
     if wx_resp.status_code != 200 or not wx_resp.text.strip():
-        print(f"⚠️  Weather API error {wx_resp.status_code}: {wx_resp.text[:200]}")
+        print(f"⚠️  Weather API error {wx_resp.status_code}")
         exit(0)
     wx = wx_resp.json()["hourly"]
     print(f"✅  Weather rows: {len(wx['time'])}")
@@ -80,7 +102,6 @@ try:
     for col in df.select_dtypes("number").columns:
         df[col].fillna(df[col].median(), inplace=True)
     df.fillna(0, inplace=True)
-    print(f"✅  Merged shape: {df.shape}")
 
     # ── Feature Engineering ───────────────────────────────────────────────────
     df["hour"]            = df["time"].dt.hour
