@@ -75,7 +75,6 @@ wx = requests.get(
             "precipitation",
             "surface_pressure",
             "cloud_cover",
-            "visibility",
             "shortwave_radiation",
         ],
         "timezone": TIMEZONE,
