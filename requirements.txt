@@ -8,4 +8,5 @@ dnspython>=2.0
 scikit-learn
 lightgbm
 xgboost
+plotly
 streamlit
