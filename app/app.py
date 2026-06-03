@@ -332,7 +332,13 @@ def load_historical(days=14):
 
 @st.cache_data(ttl=300)
 def load_model_meta():
-    return get_db()["model_registry"].find_one({"is_active": True})
+    db = get_db()
+    # get the best model across all days — sort by trained_at to get latest
+    doc = db["model_registry"].find_one(
+        {"is_best": True},
+        sort=[("trained_at", -1)]   # ← most recently trained best model
+    )
+    return doc
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPERS
