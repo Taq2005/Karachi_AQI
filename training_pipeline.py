@@ -19,7 +19,7 @@ load_dotenv()
 
 # ─── 1. Fetch data ────────────────────────────────────────────────
 client   = MongoClient(os.getenv("MONGO_URI"))
-db       = client[os.getenv("MONGO_DB", "karachi_aqi")]
+db       = client[os.getenv("MONGO_DB", "karachi_aqi_weather")]
 col      = db[os.getenv("MONGO_COLLECTION", "hourly_features")]
 registry = db["model_registry"]
 fc_col   = db["aqi_forecasts"]
