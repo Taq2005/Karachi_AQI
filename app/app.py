@@ -1,9 +1,12 @@
 from datetime import datetime, timezone, timedelta
 import os
+import pickle
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from pymongo import MongoClient
+import gridfs
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,12 +19,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── CSS — CSS custom properties adapt to Streamlit's own theme vars ───────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
 
-/* ── Tokens: light defaults, dark overrides via media query ── */
 :root {
     --bg-base:        #F5F7FA;
     --bg-card:        #FFFFFF;
@@ -34,7 +35,6 @@ st.markdown("""
     --accent:         #2563EB;
     --accent-glow:    rgba(37,99,235,0.12);
     --line-subtle:    rgba(37,99,235,0.15);
-    --chart-grid:     #E4EAF4;
     --shadow:         0 2px 16px rgba(15,28,46,0.08);
 }
 @media (prefers-color-scheme: dark) {
@@ -50,15 +50,10 @@ st.markdown("""
         --accent:         #2E6BE6;
         --accent-glow:    rgba(46,107,230,0.10);
         --line-subtle:    rgba(46,107,230,0.18);
-        --chart-grid:     #0F1E38;
         --shadow:         0 2px 24px rgba(0,0,0,0.4);
     }
 }
-
-/* ── Base ── */
-html, body,
-[data-testid="stAppViewContainer"],
-[data-testid="stMain"] {
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
     background-color: var(--bg-base) !important;
     color: var(--text-primary) !important;
     font-family: 'DM Mono', monospace;
@@ -66,231 +61,62 @@ html, body,
 [data-testid="stHeader"]  { background: transparent !important; }
 [data-testid="stSidebar"] { background: var(--bg-card) !important; }
 #MainMenu, footer         { visibility: hidden; }
-
-/* ── Cards ── */
 .card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; box-shadow: var(--shadow);
+    position: relative; overflow: hidden;
 }
 .card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 1px;
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
     background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
 }
-
-/* ── AQI hero ── */
 .aqi-hero {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 36px 24px;
-    text-align: center;
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px 24px; text-align: center;
+    box-shadow: var(--shadow); position: relative; overflow: hidden;
 }
 .aqi-hero::after {
-    content: '';
-    position: absolute;
-    bottom: -60px; right: -60px;
-    width: 200px; height: 200px;
-    border-radius: 50%;
+    content: ''; position: absolute; bottom: -60px; right: -60px;
+    width: 200px; height: 200px; border-radius: 50%;
     background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
     pointer-events: none;
 }
-.aqi-number {
-    font-family: 'Syne', sans-serif;
-    font-size: 88px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -4px;
-}
-.aqi-label {
-    font-size: 10px;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-top: 6px;
-}
-.aqi-category {
-    font-family: 'Syne', sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    margin-top: 10px;
-}
-.aqi-pills {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 20px;
-}
-.aqi-pill-item .pill-label {
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-}
-.aqi-pill-item .pill-value {
-    font-family: 'Syne', sans-serif;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-/* ── Metric cards ── */
+.aqi-number { font-family: 'Syne', sans-serif; font-size: 88px; font-weight: 800; line-height: 1; letter-spacing: -4px; }
+.aqi-label  { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--text-muted); margin-top: 6px; }
+.aqi-category { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-top: 10px; }
+.aqi-pills  { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+.aqi-pill-item .pill-label { font-size: 9px; letter-spacing: 2px; color: var(--text-muted); text-transform: uppercase; }
+.aqi-pill-item .pill-value { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text-primary); }
 .metric-card {
-    background: var(--bg-card2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 18px 12px;
-    text-align: center;
-    box-shadow: var(--shadow);
+    background: var(--bg-card2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 12px; text-align: center; box-shadow: var(--shadow);
 }
-.metric-value {
-    font-family: 'Syne', sans-serif;
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-.metric-label {
-    font-size: 9px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-top: 4px;
-}
-
-/* ── Forecast cards ── */
+.metric-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text-primary); }
+.metric-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
 .forecast-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 24px 16px;
-    text-align: center;
-    box-shadow: var(--shadow);
-    transition: border-color 0.2s, transform 0.2s;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 16px; text-align: center;
+    box-shadow: var(--shadow); transition: border-color 0.2s, transform 0.2s;
 }
-.forecast-card:hover {
-    border-color: var(--border-accent);
-    transform: translateY(-2px);
-}
-.forecast-date {
-    font-size: 9px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-}
-.forecast-aqi {
-    font-family: 'Syne', sans-serif;
-    font-size: 52px;
-    font-weight: 800;
-    line-height: 1.1;
-    margin: 8px 0 4px;
-}
-.forecast-cat {
-    font-family: 'Syne', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    margin-bottom: 10px;
-}
-.forecast-range {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-top: 6px;
-    border-top: 1px solid var(--border);
-    padding-top: 10px;
-}
-
-/* ── Section headers ── */
+.forecast-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
+.forecast-date  { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); }
+.forecast-aqi   { font-family: 'Syne', sans-serif; font-size: 52px; font-weight: 800; line-height: 1.1; margin: 8px 0 4px; }
+.forecast-cat   { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+.forecast-range { font-size: 11px; color: var(--text-secondary); margin-top: 6px; border-top: 1px solid var(--border); padding-top: 10px; }
 .section-header {
-    font-family: 'Syne', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 10px;
 }
-.section-header::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, var(--line-subtle), transparent);
-}
-
-/* ── Top bar ── */
-.topbar-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 26px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--text-primary);
-}
-.topbar-sub {
-    font-size: 9px;
-    letter-spacing: 4px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    margin-top: 2px;
-}
-.model-badge {
-    display: inline-block;
-    background: var(--bg-card2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 12px;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--accent);
-    text-transform: uppercase;
-}
-.status-live {
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: #22C55E;
-    text-transform: uppercase;
-}
-.status-dot {
-    display: inline-block;
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: #22C55E;
-    box-shadow: 0 0 6px #22C55E;
-    margin-right: 5px;
-    animation: blink 2s infinite;
-}
-@keyframes blink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.3; }
-}
-
-/* ── Divider ── */
-.divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--border), transparent);
-    margin: 28px 0;
-}
-
-/* ── Footer ── */
-.footer {
-    text-align: center;
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--text-muted);
-    padding-bottom: 24px;
-    text-transform: uppercase;
-}
-
-/* ── Scrollbar ── */
+.section-header::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-subtle), transparent); }
+.topbar-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-primary); }
+.topbar-sub   { font-size: 9px; letter-spacing: 4px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+.model-badge  { display: inline-block; background: var(--bg-card2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; font-size: 10px; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+.status-live  { font-size: 10px; letter-spacing: 2px; color: #22C55E; text-transform: uppercase; }
+.status-dot   { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 6px #22C55E; margin-right: 5px; animation: blink 2s infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 28px 0; }
+.footer  { text-align: center; font-size: 9px; letter-spacing: 2px; color: var(--text-muted); padding-bottom: 24px; text-transform: uppercase; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-base); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -301,7 +127,7 @@ html, body,
 # DATA LAYER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def get_db():   # ← no @st.cache_resource
+def get_db():
     uri     = st.secrets.get("MONGO_URI",  os.getenv("MONGO_URI"))
     db_name = st.secrets.get("MONGO_DB",   os.getenv("MONGO_DB", "karachi_aqi"))
     client  = MongoClient(uri, serverSelectionTimeoutMS=10000)
@@ -323,20 +149,28 @@ def load_hourly_forecast():
 
 @st.cache_data(ttl=300)
 def load_historical(days=14):
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    docs  = list(get_db()["hourly_features"].find(
-        {"time": {"$gte": since}},
-        {"_id": 0, "time": 1, "us_aqi": 1}
-    ).sort("time", 1))
-    return pd.DataFrame(docs) if docs else pd.DataFrame()
+    docs = list(
+        get_db()["hourly_features"]
+        .find({}, {"_id": 0, "time": 1, "us_aqi": 1})
+        .sort("time", -1)
+        .limit(days * 24)
+    )
+    if not docs:
+        return pd.DataFrame()
+    df = pd.DataFrame(docs)
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+    return df.sort_values("time").reset_index(drop=True)
 
 @st.cache_data(ttl=300)
 def load_model_meta():
-    db = get_db()
-    # get the best model across all days — sort by trained_at to get latest
-    doc = db["model_registry"].find_one(
-        {"is_best": True},
-        sort=[("trained_at", -1)]   # ← most recently trained best model
+    """
+    Fetch the active best model from registry.
+    Your training pipeline saves with is_active=True and metrics nested.
+    """
+    doc = get_db()["model_registry"].find_one(
+        {"is_active": True},
+        {"_id": 0, "model_bytes": 0, "gridfs_file_id": 0},   # exclude binary
+        sort=[("trained_at", -1)]
     )
     return doc
 
@@ -363,7 +197,6 @@ def aqi_category(val):
         if val <= t: return l
     return "Hazardous"
 
-# Plotly layout — transparent bg so it inherits page theme
 def chart_layout(height=280):
     return dict(
         paper_bgcolor="rgba(0,0,0,0)",
@@ -372,8 +205,7 @@ def chart_layout(height=280):
         height=height,
         margin=dict(l=8, r=8, t=8, b=8),
         xaxis=dict(showgrid=False, zeroline=False, showline=False),
-        yaxis=dict(gridcolor="rgba(128,128,128,0.1)",
-                   zeroline=False, showline=False),
+        yaxis=dict(gridcolor="rgba(128,128,128,0.1)", zeroline=False, showline=False),
         legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=10)),
         hovermode="x unified",
     )
@@ -391,6 +223,17 @@ def main():
 
     cur_aqi  = int(current.get("us_aqi", 0))
     cur_time = current.get("time", datetime.now(timezone.utc))
+
+    # ── extract metrics correctly from your training pipeline structure ───────
+    # your pipeline stores: {"metrics": {"model": .., "rmse": .., "mae": .., "r2": ..}}
+    raw_metrics  = model_meta.get("metrics", {})
+    model_name   = model_meta.get("model_name", raw_metrics.get("model", "—"))
+    metric_rmse  = raw_metrics.get("rmse", 0)
+    metric_mae   = raw_metrics.get("mae",  0)
+    metric_r2    = raw_metrics.get("r2",   0)
+    trained_at   = model_meta.get("trained_at", None)
+    trained_str  = pd.Timestamp(trained_at).strftime("%d %b %Y, %H:%M") if trained_at else "—"
+    model_ver    = model_meta.get("version", "—")
 
     # ── Top bar ───────────────────────────────────────────────────────────────
     c1, c2, c3 = st.columns([2, 1, 1])
@@ -411,12 +254,11 @@ def main():
         </div>""", unsafe_allow_html=True)
 
     with c3:
-        m = model_meta.get("metrics", {})
         st.markdown(f"""
         <div style="text-align:right; padding-top:14px;">
-            <div class="model-badge">⚙ {model_meta.get('model_name','—')}</div>
+            <div class="model-badge">⚙ {model_name}</div>
             <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">
-                RMSE {m.get('rmse', 0):.2f} &nbsp;·&nbsp; R² {m.get('r2', 0):.3f}
+                RMSE {metric_rmse:.2f} &nbsp;·&nbsp; R² {metric_r2:.3f}
             </div>
         </div>""", unsafe_allow_html=True)
 
@@ -459,14 +301,14 @@ def main():
         row1 = st.columns(4)
         row2 = st.columns(4)
         cond_metrics = [
-            (f"{current.get('temperature_2m', 0):.1f}°C",        "Temperature"),
-            (f"{current.get('relative_humidity_2m', 0):.0f}%",   "Humidity"),
-            (f"{current.get('wind_speed_10m', 0):.1f} km/h",     "Wind Speed"),
-            (f"{current.get('surface_pressure', 0):.0f} hPa",    "Pressure"),
-            (f"{current.get('sulphur_dioxide', 0):.1f} μg/m³",   "SO₂"),
-            (f"{current.get('carbon_monoxide', 0):.0f} μg/m³",   "CO"),
-            (f"{current.get('wind_gusts_10m', 0):.1f} km/h",      "Wind Gusts"),
-            (f"{current.get('cloud_cover', 0):.0f}%",            "Cloud Cover"),
+            (f"{current.get('temperature_2m', 0):.1f}°C",       "Temperature"),
+            (f"{current.get('relative_humidity_2m', 0):.0f}%",  "Humidity"),
+            (f"{current.get('wind_speed_10m', 0):.1f} km/h",    "Wind Speed"),
+            (f"{current.get('surface_pressure', 0):.0f} hPa",   "Pressure"),
+            (f"{current.get('sulphur_dioxide', 0):.1f} μg/m³",  "SO₂"),
+            (f"{current.get('carbon_monoxide', 0):.0f} μg/m³",  "CO"),
+            (f"{current.get('wind_gusts_10m', 0):.1f} km/h",    "Wind Gusts"),
+            (f"{current.get('cloud_cover', 0):.0f}%",           "Cloud Cover"),
         ]
         for i, (val, label) in enumerate(cond_metrics):
             col = row1[i] if i < 4 else row2[i - 4]
@@ -485,11 +327,14 @@ def main():
 
     if not daily_fc.empty:
         cols = st.columns(3, gap="medium")
-        for i, (_, row) in enumerate(daily_fc.iterrows()):
+        for i, (_, row) in enumerate(daily_fc.head(3).iterrows()):
             aqi_val  = int(row.get("predicted_aqi", 0))
             color    = aqi_color(aqi_val)
             cat      = aqi_category(aqi_val)
-            date_str = pd.Timestamp(row["date"]).strftime("%A, %d %b")
+            try:
+                date_str = pd.Timestamp(str(row["date"])).strftime("%A, %d %b")
+            except Exception:
+                date_str = str(row.get("date", "—"))
             with cols[i]:
                 st.markdown(f"""
                 <div class="forecast-card">
@@ -502,7 +347,7 @@ def main():
                     </div>
                 </div>""", unsafe_allow_html=True)
     else:
-        st.info("No forecast data yet — run the pipeline first.")
+        st.info("No forecast data yet — run train_aqi_model.py first.")
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -513,42 +358,29 @@ def main():
     if not hourly_fc.empty:
         hourly_fc["datetime"] = pd.to_datetime(hourly_fc["datetime"])
         fig = go.Figure()
-
-        # Subtle AQI band fills
-        for lo, hi, color, label in [
-            (0,   50,  "rgba(22,163,74,0.07)",   "Good"),
-            (50,  100, "rgba(202,138,4,0.07)",    "Moderate"),
-            (100, 150, "rgba(234,88,12,0.07)",    "Unhealthy·S"),
-            (150, 200, "rgba(220,38,38,0.07)",    "Unhealthy"),
-            (200, 300, "rgba(147,51,234,0.07)",   "Very Unhealthy"),
+        for lo, hi, color, _ in [
+            (0,50,"rgba(22,163,74,0.07)",""), (50,100,"rgba(202,138,4,0.07)",""),
+            (100,150,"rgba(234,88,12,0.07)",""), (150,200,"rgba(220,38,38,0.07)",""),
+            (200,300,"rgba(147,51,234,0.07)",""),
         ]:
-            fig.add_hrect(y0=lo, y1=hi, fillcolor=color,
-                          line_width=0, layer="below")
+            fig.add_hrect(y0=lo, y1=hi, fillcolor=color, line_width=0, layer="below")
 
         fig.add_trace(go.Scatter(
             x=hourly_fc["datetime"],
             y=hourly_fc["predicted_aqi_hourly"],
-            mode="lines",
-            name="Predicted AQI",
-            line=dict(color="#2563EB", width=2.5,
-                      shape="spline", smoothing=0.8),
-            fill="tozeroy",
-            fillcolor="rgba(37,99,235,0.07)",
+            mode="lines", name="Predicted AQI",
+            line=dict(color="#2563EB", width=2.5, shape="spline", smoothing=0.8),
+            fill="tozeroy", fillcolor="rgba(37,99,235,0.07)",
             hovertemplate="<b>%{y:.0f}</b> AQI<extra></extra>",
         ))
-
-        # Day separator lines
         start = hourly_fc["datetime"].iloc[0].normalize()
         for d in range(1, 4):
             fig.add_vline(
                 x=(start + pd.Timedelta(days=d)).timestamp() * 1000,
-                line_color="rgba(128,128,128,0.2)",
-                line_dash="dot", line_width=1,
+                line_color="rgba(128,128,128,0.2)", line_dash="dot", line_width=1,
             )
-
         fig.update_layout(**chart_layout(280))
-        st.plotly_chart(fig, use_container_width=True,
-                        config={"displayModeBar": False})
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     else:
         st.info("No hourly forecast available.")
 
@@ -561,17 +393,13 @@ def main():
         st.markdown('<div class="section-header">14-Day Historical Trend</div>',
                     unsafe_allow_html=True)
         if not historical.empty:
-            historical["time"]    = pd.to_datetime(historical["time"])
-            historical["roll24"]  = historical["us_aqi"].rolling(24).mean()
-
+            historical["roll24"] = historical["us_aqi"].rolling(24).mean()
             fig2 = go.Figure()
             fig2.add_trace(go.Scatter(
                 x=historical["time"], y=historical["us_aqi"],
                 mode="lines", name="AQI",
-                line=dict(color="rgba(37,99,235,0.5)", width=1.2,
-                          shape="spline", smoothing=0.6),
-                fill="tozeroy",
-                fillcolor="rgba(37,99,235,0.05)",
+                line=dict(color="rgba(37,99,235,0.5)", width=1.2, shape="spline", smoothing=0.6),
+                fill="tozeroy", fillcolor="rgba(37,99,235,0.05)",
                 hovertemplate="<b>%{y:.0f}</b><extra></extra>",
             ))
             fig2.add_trace(go.Scatter(
@@ -581,8 +409,7 @@ def main():
                 hovertemplate="<b>%{y:.1f}</b> avg<extra></extra>",
             ))
             fig2.update_layout(**chart_layout(240))
-            st.plotly_chart(fig2, use_container_width=True,
-                            config={"displayModeBar": False})
+            st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
         else:
             st.info("No historical data available.")
 
@@ -592,25 +419,17 @@ def main():
         if not historical.empty:
             fig3 = go.Figure()
             fig3.add_trace(go.Histogram(
-                x=historical["us_aqi"],
-                nbinsx=20,
-                marker=dict(
-                    color=historical["us_aqi"].apply(aqi_color),
-                    line=dict(color="rgba(0,0,0,0.1)", width=0.5),
-                ),
-                hovertemplate="AQI %{x}: <b>%{y}</b> hrs<extra></extra>",
-                name="",
+                x=historical["us_aqi"], nbinsx=20,
+                marker=dict(color=historical["us_aqi"].apply(aqi_color),
+                            line=dict(color="rgba(0,0,0,0.1)", width=0.5)),
+                hovertemplate="AQI %{x}: <b>%{y}</b> hrs<extra></extra>", name="",
             ))
             layout3 = chart_layout(240)
-            layout3["bargap"]          = 0.05
-            layout3["xaxis"]["title"]  = "AQI"
-            layout3["yaxis"]["title"]  = "Hours"
-            layout3["showlegend"]      = False
+            layout3.update({"bargap": 0.05, "showlegend": False,
+                            "xaxis": {**layout3.get("xaxis",{}), "title": "AQI"},
+                            "yaxis": {**layout3.get("yaxis",{}), "title": "Hours"}})
             fig3.update_layout(**layout3)
-            st.plotly_chart(fig3, use_container_width=True,
-                            config={"displayModeBar": False})
-        else:
-            st.info("No data available.")
+            st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False})
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -618,35 +437,28 @@ def main():
     st.markdown('<div class="section-header">Model Performance</div>',
                 unsafe_allow_html=True)
 
-    m      = model_meta.get("metrics", {})
-    trained = model_meta.get("trained_at", None)
-    trained_str = (pd.Timestamp(trained).strftime("%d %b %Y, %H:%M")
-                   if trained else "—")
-
     mc = st.columns(5)
     perf = [
-        (model_meta.get("model_name", "—"), "Active Model"),
-        (f"{m.get('rmse', 0):.3f}",         "RMSE"),
-        (f"{m.get('mae',  0):.3f}",         "MAE"),
-        (f"{m.get('r2',   0):.4f}",         "R²"),
-        (trained_str,                        "Last Trained"),
+        (model_name,                   "Active Model"),
+        (f"{metric_rmse:.3f}",         "RMSE"),
+        (f"{metric_mae:.3f}",          "MAE"),
+        (f"{metric_r2:.4f}",           "R²"),
+        (trained_str,                  "Last Trained"),
     ]
     for col, (val, label) in zip(mc, perf):
         with col:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-value" style="font-size:18px; color:var(--accent);">
-                    {val}
-                </div>
+                <div class="metric-value" style="font-size:18px; color:var(--accent);">{val}</div>
                 <div class="metric-label">{label}</div>
             </div>""", unsafe_allow_html=True)
 
-    # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown("""
+    st.markdown(f"""
     <div class="footer">
         Aab-O-Hawa &nbsp;·&nbsp; Karachi Air Quality Intelligence
-        &nbsp;·&nbsp; Data: Open-Meteo &nbsp;·&nbsp; Model retrained daily
+        &nbsp;·&nbsp; Data: Open-Meteo &nbsp;·&nbsp;
+        Model v{model_ver} &nbsp;·&nbsp; Retrained daily
     </div>""", unsafe_allow_html=True)
 
 
