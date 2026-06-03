@@ -207,7 +207,7 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
     last_ts      = seed_df.index[-1]
     hourly_preds = []
     hist_mean      = float(df["us_aqi"].tail(24 * 7).mean())
-    REVERSION_RATE = 0.015
+    REVERSION_RATE = 0.003
     for step in range(FORECAST_H):
         next_ts = last_ts + pd.Timedelta(hours=step + 1)
         row = {col: last_weather[col] for col in wx_cols}
