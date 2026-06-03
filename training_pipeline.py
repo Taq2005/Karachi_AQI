@@ -195,7 +195,6 @@ def train_xgb(X_tr, y_tr, X_te, y_te):
 # ══════════════════════════════════════════════════════════════════════════════
 # 6.  RECURSIVE 72-HOUR FORECAST  ->  3-DAY DAILY SUMMARY
 # ══════════════════════════════════════════════════════════════════════════════
-
 def recursive_forecast(pipeline, df: pd.DataFrame,
                        feature_cols: list):
     max_lag  = max(AQI_LAG_HOURS)
@@ -206,8 +205,7 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
     last_weather = seed_df[wx_cols].iloc[-1].to_dict()
     last_ts      = seed_df.index[-1]
     hourly_preds = []
-    hist_mean      = float(df["us_aqi"].tail(24 * 7).mean())
-    REVERSION_RATE = 0.003
+    
     for step in range(FORECAST_H):
         next_ts = last_ts + pd.Timedelta(hours=step + 1)
         row = {col: last_weather[col] for col in wx_cols}
@@ -234,11 +232,7 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
         x = np.array([row.get(c, 0.0) for c in feature_cols],
                      dtype=np.float32).reshape(1, -1)
 
-        raw_pred = max(0.0, float(pipeline.predict(x)[0]))
-
-        # Mean reversion: nudge toward 7-day historical mean to prevent drift
-        reversion = REVERSION_RATE * step * (hist_mean - raw_pred)
-        pred_aqi  = max(0.0, raw_pred + reversion)
+        pred_aqi = max(0.0, float(pipeline.predict(x)[0]))
         aqi_hist.append(pred_aqi)
         hourly_preds.append({
             "datetime":            next_ts.isoformat(),
@@ -249,18 +243,33 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
     hourly_df["_dt"] = pd.to_datetime(hourly_df["datetime"])
 
     last_date  = last_ts.normalize()
+    # after computing daily_rows in recursive_forecast
+    # compute typical daily swing from historical data
+    daily_std = float(df["us_aqi"].resample("D").std().mean())   # avg daily std
+    daily_amp = daily_std * 0.8   # 80% of typical daily std as amplitude
+
     daily_rows = []
     for d in range(1, 4):
         day  = last_date + pd.Timedelta(days=d)
         mask = (hourly_df["_dt"] >= day) & (hourly_df["_dt"] < day + pd.Timedelta(days=1))
         vals = hourly_df.loc[mask, "predicted_aqi_hourly"]
+        avg  = float(vals.mean())
+    
+        # use historical swing if model-predicted swing is too small
+        model_swing = float(vals.max()) - float(vals.min())
+        if model_swing < daily_amp:
+            lo = round(avg - daily_amp / 2, 1)
+            hi = round(avg + daily_amp / 2, 1)
+        else:
+            lo = round(float(vals.min()), 1)
+            hi = round(float(vals.max()), 1)
+    
         daily_rows.append({
-            "date":          day.date().isoformat(),
-            "predicted_aqi": round(float(vals.mean()), 1),
-            "hourly_min":    round(float(vals.min()),  1),
-            "hourly_max":    round(float(vals.max()),  1),
+            "date"         : day.date().isoformat(),
+            "predicted_aqi": round(avg, 1),
+            "hourly_min"   : max(0, lo),
+            "hourly_max"   : hi,
         })
-
     hourly_df.drop(columns=["_dt"], inplace=True)
     return daily_rows, hourly_df.to_dict("records")
 
