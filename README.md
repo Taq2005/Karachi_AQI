@@ -12,7 +12,7 @@ A fully automated, end-to-end air quality monitoring and forecasting system buil
 
 ## 🖥️ Live Dashboard
 
-> **[View Live App →](https://your-app-url.streamlit.app)**  
+> **[View Live App →]((https://karachiaqi-np4grgkcjpr4qxwpak3xep.streamlit.app/))**  
 > Updates automatically every hour · Forecast retrained daily
 ![Dashboard Preview](assets/dashboard.png)
 ![Forecast Cards](assets/forecast.png)
