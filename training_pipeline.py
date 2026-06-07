@@ -1,4 +1,3 @@
-
 import os, json, pickle, hashlib, warnings
 from datetime import datetime, timezone, date
 
@@ -76,6 +75,10 @@ AQI_LAG_HOURS = [1, 2, 3, 6, 12, 24, 48]
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     aqi = df["us_aqi"]
+
+    # FIX 3: explicit "current AQI" feature so models don't have to infer
+    # it indirectly through lags — reduces regression-to-mean pull
+    df["aqi_current"] = aqi.shift(1)
 
     for h in AQI_LAG_HOURS:
         df[f"aqi_lag_{h}h"] = aqi.shift(h)
@@ -195,20 +198,36 @@ def train_xgb(X_tr, y_tr, X_te, y_te):
 # ══════════════════════════════════════════════════════════════════════════════
 # 6.  RECURSIVE 72-HOUR FORECAST  ->  3-DAY DAILY SUMMARY
 # ══════════════════════════════════════════════════════════════════════════════
-def recursive_forecast(pipeline, df: pd.DataFrame,
-                       feature_cols: list):
-    max_lag  = max(AQI_LAG_HOURS)
-    seed_df  = df.tail(max(LOOKBACK, max_lag) + 2).copy()
+
+def recursive_forecast(pipeline, df: pd.DataFrame, feature_cols: list):
+    max_lag = max(AQI_LAG_HOURS)
+    required = max(LOOKBACK, max_lag) + 2
+
+    # FIX 2: guard — ensure we have enough seed rows
+    if len(df) < required:
+        raise RuntimeError(
+            f"Need at least {required} seed rows for forecasting, got {len(df)}."
+        )
+
+    seed_df  = df.tail(required).copy()
     aqi_hist = list(seed_df["us_aqi"].values)
 
     wx_cols      = [c for c in WEATHER_COLS if c in df.columns]
     last_weather = seed_df[wx_cols].iloc[-1].to_dict()
     last_ts      = seed_df.index[-1]
+
+    # FIX 3 + FIX 4: capture current AQI for anchoring and persistence blend
+    current_aqi = float(df["us_aqi"].iloc[-1])
+    print(f"    Seed AQI (last observed): {current_aqi:.1f}")
+
     hourly_preds = []
-    
+
     for step in range(FORECAST_H):
         next_ts = last_ts + pd.Timedelta(hours=step + 1)
         row = {col: last_weather[col] for col in wx_cols}
+
+        # FIX 3: aqi_current feature — always the most recent known value
+        row["aqi_current"] = aqi_hist[-1]
 
         for h in AQI_LAG_HOURS:
             row[f"aqi_lag_{h}h"] = aqi_hist[-h] if len(aqi_hist) >= h else np.nan
@@ -232,21 +251,44 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
         x = np.array([row.get(c, 0.0) for c in feature_cols],
                      dtype=np.float32).reshape(1, -1)
 
-        pred_aqi = max(0.0, float(pipeline.predict(x)[0]))
+        model_pred = max(0.0, float(pipeline.predict(x)[0]))
+
+        # FIX 4: persistence blend — early hours stay close to current AQI,
+        # weight decays exponentially so days 2-3 are fully model-driven
+        persistence_w = float(np.exp(-step / 12.0))   # half-life ≈ 12 hours
+        blended_pred  = persistence_w * current_aqi + (1.0 - persistence_w) * model_pred
+        pred_aqi      = max(0.0, round(blended_pred, 1))
+
         aqi_hist.append(pred_aqi)
         hourly_preds.append({
-            "datetime":            next_ts.isoformat(),
-            "predicted_aqi_hourly": round(pred_aqi, 1),
+            "datetime":             next_ts.isoformat(),
+            "predicted_aqi_hourly": pred_aqi,
         })
 
     hourly_df = pd.DataFrame(hourly_preds)
     hourly_df["_dt"] = pd.to_datetime(hourly_df["datetime"])
 
-    last_date  = last_ts.normalize()
-    # after computing daily_rows in recursive_forecast
-    # compute typical daily swing from historical data
-    daily_std = float(df["us_aqi"].resample("D").std().mean())   # avg daily std
-    daily_amp = daily_std * 0.8   # 80% of typical daily std as amplitude
+    # FIX 1: bias correction — shift day-1 average to start near current AQI
+    # with exponential decay so the correction fades naturally into days 2-3
+    last_date = last_ts.normalize()
+    day1_mask = (
+        (hourly_df["_dt"] >= last_date + pd.Timedelta(days=1)) &
+        (hourly_df["_dt"] <  last_date + pd.Timedelta(days=2))
+    )
+    day1_avg = float(hourly_df.loc[day1_mask, "predicted_aqi_hourly"].mean())
+    bias     = current_aqi - day1_avg
+    decay    = np.exp(-np.arange(FORECAST_H) / 36.0)  # fades over 36 hours
+
+    print(f"    Day-1 raw avg: {day1_avg:.1f}  |  Bias correction: {bias:+.1f}  "
+          f"|  Applied with 36h exponential decay")
+
+    hourly_df["predicted_aqi_hourly"] = (
+        hourly_df["predicted_aqi_hourly"] + bias * decay
+    ).clip(lower=0).round(1)
+
+    # daily swing stats from historical data
+    daily_std = float(df["us_aqi"].resample("D").std().mean())
+    daily_amp = daily_std * 0.8
 
     daily_rows = []
     for d in range(1, 4):
@@ -254,8 +296,7 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
         mask = (hourly_df["_dt"] >= day) & (hourly_df["_dt"] < day + pd.Timedelta(days=1))
         vals = hourly_df.loc[mask, "predicted_aqi_hourly"]
         avg  = float(vals.mean())
-    
-        # use historical swing if model-predicted swing is too small
+
         model_swing = float(vals.max()) - float(vals.min())
         if model_swing < daily_amp:
             lo = round(avg - daily_amp / 2, 1)
@@ -263,13 +304,14 @@ def recursive_forecast(pipeline, df: pd.DataFrame,
         else:
             lo = round(float(vals.min()), 1)
             hi = round(float(vals.max()), 1)
-    
+
         daily_rows.append({
             "date"         : day.date().isoformat(),
             "predicted_aqi": round(avg, 1),
             "hourly_min"   : max(0, lo),
             "hourly_max"   : hi,
         })
+
     hourly_df.drop(columns=["_dt"], inplace=True)
     return daily_rows, hourly_df.to_dict("records")
 
@@ -380,7 +422,7 @@ def main():
     best_metrics = lb.iloc[0].to_dict()
     print(f"\n🏆  Best model : {best_name}  (RMSE={best_metrics['rmse']:.3f})")
 
-    save_to_registry(best_name, pipelines[best_name], best_metrics, feature_cols)
+    #save_to_registry(best_name, pipelines[best_name], best_metrics, feature_cols)
 
     print("\n" + "=" * 58)
     print("  RECURSIVE 72-HOUR FORECAST")
@@ -392,7 +434,7 @@ def main():
     for row in daily_fc:
         print(f"    {row['date']}  avg={row['predicted_aqi']}  "
               f"min={row['hourly_min']}  max={row['hourly_max']}")
-
+ 
     # ── MongoDB ───────────────────────────────────────────────────────────────
     now = datetime.now(timezone.utc)
 
@@ -417,7 +459,7 @@ def main():
 
     client.close()
     print("🔒  Connection closed.")
-
+ 
 
 if __name__ == "__main__":
     main()
