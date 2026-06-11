@@ -1,228 +1,120 @@
 {
-  "generated_at": "2026-06-10T05:09:11.339585+00:00",
+  "generated_at": "2026-06-11T05:18:26.873268+00:00",
   "model_used": "RandomForest",
   "metrics": {
     "model": "RandomForest",
-    "rmse": 1.206188529209133,
-    "mae": 0.8507477655029596,
-    "r2": 0.9928927333486528
+    "rmse": 1.1925766868896006,
+    "mae": 0.8218950857121481,
+    "r2": 0.9934416995565307
   },
   "daily": [
     {
-      "date": "2026-06-11",
-      "predicted_aqi": 62.2,
-      "hourly_min": 60.1,
-      "hourly_max": 65.5
-    },
-    {
       "date": "2026-06-12",
-      "predicted_aqi": 78.6,
-      "hourly_min": 65.6,
-      "hourly_max": 82.1
+      "predicted_aqi": 71.7,
+      "hourly_min": 70.1,
+      "hourly_max": 75.5
     },
     {
       "date": "2026-06-13",
-      "predicted_aqi": 82.1,
-      "hourly_min": 82.1,
-      "hourly_max": 82.1
+      "predicted_aqi": 76.5,
+      "hourly_min": 75.3,
+      "hourly_max": 79.4
+    },
+    {
+      "date": "2026-06-14",
+      "predicted_aqi": 79.4,
+      "hourly_min": 79.4,
+      "hourly_max": 79.4
     }
   ],
   "hourly": [
     {
-      "datetime": "2026-06-10T01:00:00",
-      "predicted_aqi_hourly": 67.3
-    },
-    {
-      "datetime": "2026-06-10T02:00:00",
-      "predicted_aqi_hourly": 66.0
-    },
-    {
-      "datetime": "2026-06-10T03:00:00",
-      "predicted_aqi_hourly": 65.1
-    },
-    {
-      "datetime": "2026-06-10T04:00:00",
-      "predicted_aqi_hourly": 62.5
-    },
-    {
-      "datetime": "2026-06-10T05:00:00",
-      "predicted_aqi_hourly": 59.8
-    },
-    {
-      "datetime": "2026-06-10T06:00:00",
-      "predicted_aqi_hourly": 58.4
-    },
-    {
-      "datetime": "2026-06-10T07:00:00",
-      "predicted_aqi_hourly": 57.4
-    },
-    {
-      "datetime": "2026-06-10T08:00:00",
-      "predicted_aqi_hourly": 56.4
-    },
-    {
-      "datetime": "2026-06-10T09:00:00",
-      "predicted_aqi_hourly": 55.2
-    },
-    {
-      "datetime": "2026-06-10T10:00:00",
-      "predicted_aqi_hourly": 54.9
-    },
-    {
-      "datetime": "2026-06-10T11:00:00",
-      "predicted_aqi_hourly": 55.2
-    },
-    {
-      "datetime": "2026-06-10T12:00:00",
-      "predicted_aqi_hourly": 55.8
-    },
-    {
-      "datetime": "2026-06-10T13:00:00",
-      "predicted_aqi_hourly": 56.5
-    },
-    {
-      "datetime": "2026-06-10T14:00:00",
-      "predicted_aqi_hourly": 56.6
-    },
-    {
-      "datetime": "2026-06-10T15:00:00",
-      "predicted_aqi_hourly": 57.8
-    },
-    {
-      "datetime": "2026-06-10T16:00:00",
-      "predicted_aqi_hourly": 58.9
-    },
-    {
-      "datetime": "2026-06-10T17:00:00",
-      "predicted_aqi_hourly": 59.5
-    },
-    {
-      "datetime": "2026-06-10T18:00:00",
-      "predicted_aqi_hourly": 59.6
-    },
-    {
-      "datetime": "2026-06-10T19:00:00",
-      "predicted_aqi_hourly": 59.7
-    },
-    {
-      "datetime": "2026-06-10T20:00:00",
-      "predicted_aqi_hourly": 59.9
-    },
-    {
-      "datetime": "2026-06-10T21:00:00",
-      "predicted_aqi_hourly": 59.9
-    },
-    {
-      "datetime": "2026-06-10T22:00:00",
-      "predicted_aqi_hourly": 59.9
-    },
-    {
-      "datetime": "2026-06-10T23:00:00",
-      "predicted_aqi_hourly": 60.0
-    },
-    {
-      "datetime": "2026-06-11T00:00:00",
-      "predicted_aqi_hourly": 60.1
-    },
-    {
-      "datetime": "2026-06-11T01:00:00",
-      "predicted_aqi_hourly": 60.2
-    },
-    {
-      "datetime": "2026-06-11T02:00:00",
-      "predicted_aqi_hourly": 60.3
-    },
-    {
-      "datetime": "2026-06-11T03:00:00",
-      "predicted_aqi_hourly": 60.4
-    },
-    {
       "datetime": "2026-06-11T04:00:00",
-      "predicted_aqi_hourly": 60.5
+      "predicted_aqi_hourly": 69.6
     },
     {
       "datetime": "2026-06-11T05:00:00",
-      "predicted_aqi_hourly": 60.6
+      "predicted_aqi_hourly": 69.6
     },
     {
       "datetime": "2026-06-11T06:00:00",
-      "predicted_aqi_hourly": 60.9
+      "predicted_aqi_hourly": 69.6
     },
     {
       "datetime": "2026-06-11T07:00:00",
-      "predicted_aqi_hourly": 61.0
+      "predicted_aqi_hourly": 69.6
     },
     {
       "datetime": "2026-06-11T08:00:00",
-      "predicted_aqi_hourly": 61.1
+      "predicted_aqi_hourly": 69.7
     },
     {
       "datetime": "2026-06-11T09:00:00",
-      "predicted_aqi_hourly": 61.2
+      "predicted_aqi_hourly": 69.7
     },
     {
       "datetime": "2026-06-11T10:00:00",
-      "predicted_aqi_hourly": 61.2
+      "predicted_aqi_hourly": 69.7
     },
     {
       "datetime": "2026-06-11T11:00:00",
-      "predicted_aqi_hourly": 61.3
+      "predicted_aqi_hourly": 69.8
     },
     {
       "datetime": "2026-06-11T12:00:00",
-      "predicted_aqi_hourly": 61.4
+      "predicted_aqi_hourly": 69.8
     },
     {
       "datetime": "2026-06-11T13:00:00",
-      "predicted_aqi_hourly": 61.4
+      "predicted_aqi_hourly": 69.8
     },
     {
       "datetime": "2026-06-11T14:00:00",
-      "predicted_aqi_hourly": 61.5
+      "predicted_aqi_hourly": 69.8
     },
     {
       "datetime": "2026-06-11T15:00:00",
-      "predicted_aqi_hourly": 61.6
+      "predicted_aqi_hourly": 69.8
     },
     {
       "datetime": "2026-06-11T16:00:00",
-      "predicted_aqi_hourly": 62.5
+      "predicted_aqi_hourly": 69.9
     },
     {
       "datetime": "2026-06-11T17:00:00",
-      "predicted_aqi_hourly": 63.6
+      "predicted_aqi_hourly": 69.9
     },
     {
       "datetime": "2026-06-11T18:00:00",
-      "predicted_aqi_hourly": 64.5
+      "predicted_aqi_hourly": 69.9
     },
     {
       "datetime": "2026-06-11T19:00:00",
-      "predicted_aqi_hourly": 65.3
+      "predicted_aqi_hourly": 70.0
     },
     {
       "datetime": "2026-06-11T20:00:00",
-      "predicted_aqi_hourly": 65.3
+      "predicted_aqi_hourly": 70.0
     },
     {
       "datetime": "2026-06-11T21:00:00",
-      "predicted_aqi_hourly": 65.3
+      "predicted_aqi_hourly": 70.0
     },
     {
       "datetime": "2026-06-11T22:00:00",
-      "predicted_aqi_hourly": 65.4
+      "predicted_aqi_hourly": 70.0
     },
     {
       "datetime": "2026-06-11T23:00:00",
-      "predicted_aqi_hourly": 65.5
+      "predicted_aqi_hourly": 70.1
     },
     {
       "datetime": "2026-06-12T00:00:00",
-      "predicted_aqi_hourly": 65.6
+      "predicted_aqi_hourly": 70.1
     },
     {
       "datetime": "2026-06-12T01:00:00",
-      "predicted_aqi_hourly": 68.3
+      "predicted_aqi_hourly": 70.1
     },
     {
       "datetime": "2026-06-12T02:00:00",
@@ -230,91 +122,199 @@
     },
     {
       "datetime": "2026-06-12T03:00:00",
-      "predicted_aqi_hourly": 72.6
+      "predicted_aqi_hourly": 70.1
     },
     {
       "datetime": "2026-06-12T04:00:00",
-      "predicted_aqi_hourly": 74.7
+      "predicted_aqi_hourly": 70.2
     },
     {
       "datetime": "2026-06-12T05:00:00",
-      "predicted_aqi_hourly": 76.0
+      "predicted_aqi_hourly": 70.2
     },
     {
       "datetime": "2026-06-12T06:00:00",
-      "predicted_aqi_hourly": 77.9
+      "predicted_aqi_hourly": 70.2
     },
     {
       "datetime": "2026-06-12T07:00:00",
-      "predicted_aqi_hourly": 79.2
+      "predicted_aqi_hourly": 70.2
     },
     {
       "datetime": "2026-06-12T08:00:00",
-      "predicted_aqi_hourly": 79.9
+      "predicted_aqi_hourly": 70.3
     },
     {
       "datetime": "2026-06-12T09:00:00",
-      "predicted_aqi_hourly": 80.6
+      "predicted_aqi_hourly": 70.3
     },
     {
       "datetime": "2026-06-12T10:00:00",
-      "predicted_aqi_hourly": 81.3
+      "predicted_aqi_hourly": 70.4
     },
     {
       "datetime": "2026-06-12T11:00:00",
-      "predicted_aqi_hourly": 81.3
+      "predicted_aqi_hourly": 70.4
     },
     {
       "datetime": "2026-06-12T12:00:00",
-      "predicted_aqi_hourly": 81.3
+      "predicted_aqi_hourly": 70.4
     },
     {
       "datetime": "2026-06-12T13:00:00",
-      "predicted_aqi_hourly": 81.4
+      "predicted_aqi_hourly": 70.5
     },
     {
       "datetime": "2026-06-12T14:00:00",
-      "predicted_aqi_hourly": 81.4
+      "predicted_aqi_hourly": 70.5
     },
     {
       "datetime": "2026-06-12T15:00:00",
-      "predicted_aqi_hourly": 81.4
+      "predicted_aqi_hourly": 70.5
     },
     {
       "datetime": "2026-06-12T16:00:00",
-      "predicted_aqi_hourly": 81.4
+      "predicted_aqi_hourly": 72.3
     },
     {
       "datetime": "2026-06-12T17:00:00",
-      "predicted_aqi_hourly": 81.4
+      "predicted_aqi_hourly": 72.9
     },
     {
       "datetime": "2026-06-12T18:00:00",
-      "predicted_aqi_hourly": 81.5
+      "predicted_aqi_hourly": 73.8
     },
     {
       "datetime": "2026-06-12T19:00:00",
-      "predicted_aqi_hourly": 81.5
+      "predicted_aqi_hourly": 74.9
     },
     {
       "datetime": "2026-06-12T20:00:00",
-      "predicted_aqi_hourly": 81.6
+      "predicted_aqi_hourly": 75.4
     },
     {
       "datetime": "2026-06-12T21:00:00",
-      "predicted_aqi_hourly": 82.1
+      "predicted_aqi_hourly": 75.4
     },
     {
       "datetime": "2026-06-12T22:00:00",
-      "predicted_aqi_hourly": 82.1
+      "predicted_aqi_hourly": 75.4
     },
     {
       "datetime": "2026-06-12T23:00:00",
-      "predicted_aqi_hourly": 82.1
+      "predicted_aqi_hourly": 75.5
     },
     {
       "datetime": "2026-06-13T00:00:00",
-      "predicted_aqi_hourly": 82.1
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T01:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T02:00:00",
+      "predicted_aqi_hourly": 75.5
+    },
+    {
+      "datetime": "2026-06-13T03:00:00",
+      "predicted_aqi_hourly": 75.5
+    },
+    {
+      "datetime": "2026-06-13T04:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T05:00:00",
+      "predicted_aqi_hourly": 75.3
+    },
+    {
+      "datetime": "2026-06-13T06:00:00",
+      "predicted_aqi_hourly": 75.3
+    },
+    {
+      "datetime": "2026-06-13T07:00:00",
+      "predicted_aqi_hourly": 75.3
+    },
+    {
+      "datetime": "2026-06-13T08:00:00",
+      "predicted_aqi_hourly": 75.3
+    },
+    {
+      "datetime": "2026-06-13T09:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T10:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T11:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T12:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T13:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T14:00:00",
+      "predicted_aqi_hourly": 75.4
+    },
+    {
+      "datetime": "2026-06-13T15:00:00",
+      "predicted_aqi_hourly": 75.5
+    },
+    {
+      "datetime": "2026-06-13T16:00:00",
+      "predicted_aqi_hourly": 75.5
+    },
+    {
+      "datetime": "2026-06-13T17:00:00",
+      "predicted_aqi_hourly": 77.6
+    },
+    {
+      "datetime": "2026-06-13T18:00:00",
+      "predicted_aqi_hourly": 78.9
+    },
+    {
+      "datetime": "2026-06-13T19:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-13T20:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-13T21:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-13T22:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-13T23:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-14T00:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-14T01:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-14T02:00:00",
+      "predicted_aqi_hourly": 79.4
+    },
+    {
+      "datetime": "2026-06-14T03:00:00",
+      "predicted_aqi_hourly": 79.4
     }
   ]
 }
