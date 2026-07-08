@@ -280,7 +280,7 @@ This project is open source under the [MIT License](LICENSE).
 
 ## 👤 Author
 
-**Muhammad Taqee**  
+**Muhammad Taqi**      
 Built as part of an end-to-end ML engineering project.
 
 ---
